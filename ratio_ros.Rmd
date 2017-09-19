@@ -1,0 +1,88 @@
+---
+title: "Comparaison des ratio ROS observé en condition témoin et en condition exposé"
+author: "Claire Della Vedova"
+date: "19 septembre 2017"
+output: html_document
+---
+
+##1) Design expérimental
+
+Les niveaux de ROS sont mesurés sur 4 échantillons :
+
+* 10 larves témoin en activité basale
+* 10 larves témoin en activité stimulée
+* 10 larves HTO en activité basale
+* 10 larves HTO en activité stimulée
+
+La variable d'intéret est le ratio du niveau de ROS en activité basale sur le niveau de ROS en activité stimulée. Et de comparer les conditions contrôle et HTO.
+ 
+
+
+##2) Principe de l'analyse
+Je propose de calculer la moyenne des niveaux de ROS des 4 échantillons, puis de calculer le ratio de la moyenne basale sur la moyenne stimulé pour les témoins et les HTO. Il s'agira des ratio observés.
+
+Je propose ensuite d'échantillonner 1000 fois par tirage boostrap, chacun des 4 échantillons,  et de calculer les deux ratios. Nous obtiendrons 1000 ratios contrôle et 1000 ratio témoins. Ces ratios issus du bootstrap nous servirons à calculer les Intervalles de confiances des ratios observés.
+
+Si les intervalles de confiances des ratios contrôle et stimulé ne se chevauchent pas, nous pourrons conclure que les ratios sont significativement différents.En revanche, si ils se chevauchent, nous ne pourrons seulement que dire que nous n'avons pas pu mettre en évidence une différence, que cela peut être du à un manque de puissance (les tests statistiques sont plus précis que la méthode du chevauchement.) . Dans ce cas je réfléchirais à l'utilisation d'un test, mais le fait que les échantillons soient seulement de taille 10 ne facilite pas les choses (risque de faible puissance, difficulté à évaluer une loi de distribution pour définir le test à utiliser).
+
+
+##3) Analyse
+
+```{r package, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+```
+
+
+```{r import, echo=FALSE}
+ros <- read.csv2("data/ROS_cdv.csv")
+
+```
+
+###3.1) Visualisation
+```{r viz raw data, echo=FALSE}
+
+ggplot(ros, aes(y=Response, x=Group, colour=Group, fill=Group))+
+  geom_jitter(size=5)+
+  geom_boxplot(coef = 0, alpha=0.3, outlier.size=0)
+
+
+```
+
+
+###3.2) Calcul des ratios basal / stimulé observés
+
+
+Les moyennes des échantillons sont :
+
+```{r moy, echo=FALSE}
+
+
+
+avg <- ros %>%
+  group_by(Group) %>%
+  summarise (avg = mean(Response))
+kable(avg, "html") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F, position="left")
+
+
+```
+
+
+Les ratios observés sont:
+
+```{r ratio, echo=FALSE}
+
+R_Control <- round(avg$avg[1]/avg$avg[2],2)
+R_HTO <- round(avg$avg[3]/avg$avg[4],2)
+
+Ratio_df <- data.frame(Condition=c("Control","HTO"), r=c(R_Control,R_HTO))
+kable(Ratio_df, "html") %>%
+   kable_styling(bootstrap_options = "striped", full_width = F, position="left")
+
+```
+
+
