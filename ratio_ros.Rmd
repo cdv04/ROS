@@ -28,12 +28,19 @@ Si les intervalles de confiances des ratios contrôle et stimulé ne se chevauch
 
 ##3) Analyse
 
+```{r  global_options}
+knitr::opts_chunk$set( message = FALSE,
+  warning = FALSE)
+```
+
+
 ```{r package, echo=FALSE, message=FALSE, warning=FALSE}
 
 library(dplyr)
 library(ggplot2)
 library(knitr)
 library(kableExtra)
+library(boot)
 ```
 
 
@@ -42,19 +49,7 @@ ros <- read.csv2("data/ROS_cdv.csv")
 
 ```
 
-###3.1) Visualisation
-```{r viz raw data, echo=FALSE}
-
-ggplot(ros, aes(y=Response, x=Group, colour=Group, fill=Group))+
-  geom_jitter(size=5)+
-  geom_boxplot(coef = 0, alpha=0.3, outlier.size=0)
-
-
-```
-
-
-###3.2) Calcul des ratios basal / stimulé observés
-
+###3.1) Visualisation des moyennes
 
 Les moyennes des échantillons sont :
 
@@ -71,6 +66,20 @@ kable(avg, "html") %>%
 
 ```
 
+```{r viz raw data, echo=FALSE}
+
+ggplot(ros, aes(y=Response, x=Group, colour=Group, fill=Group))+
+  geom_jitter(size=5)+
+  geom_boxplot(coef = 0, alpha=0.3, outlier.size=0)+
+  scale_y_continuous(limits=c(0,175))
+
+
+```
+
+
+###3.2) Calcul des ratios basal / stimulé observés
+
+
 
 Les ratios observés sont:
 
@@ -85,4 +94,70 @@ kable(Ratio_df, "html") %>%
 
 ```
 
+###3.3) Calcul des intervalles de confiance des ratio par bootstrap
+
+```{r fonction statistic}
+
+# fonction "statistic" utilisée dans la fonction boot pour calculer l'IC du ratio
+ratioMoy <- function(data, indice)
+{
+  data.star <- data[indice]
+  moy_b.star <- mean(data.star[1:10]) # moyenne de l'activity basal
+  moy_s.star <- mean(data.star[11:20])# moyenne de l'activity stimulated
+  Ratio.star <- moy_b.star/moy_s.star # calcul du ratio = le paramèter d'intérêt
+}
+```
+
+#### 3.3.1)   IC du ratio en condition Control
+
+```{r IC condition control, echo=FALSE}
+
+# création du fichier de données Control
+ros_Cont <- ros %>%
+  filter(Condition=="Control")
+
+# bootstrap : strata sert à faire du bootstrap à l'interieur de chaque modalité de la variable Activity
+boot_Cont <- boot(ros_Cont$Response, statistic=ratioMoy, strata=ros_Cont$Activity, R=4999)
+
+boot_Cont
+
+boot.ci(boot_Cont)
+
+```
+
+
+#### 3.3.2)   IC du ratio en condition HTO
+
+
+
+```{r IC condition HTO, echo= FALSE}
+
+
+ros_HTO <- ros %>%
+  filter(Condition=="HTO")
+
+boot_HTO <- boot(ros_HTO$Response, statistic=ratioMoy, strata=ros_HTO$Activity, R=4999)
+boot_HTO
+boot.ci(boot_HTO)
+
+
+
+```
+
+
+#### 3.3.3) Visualisation (intervales BCa)
+```{r df}
+
+Ratio_df$lower <-round(c(boot.ci(boot_Cont)$bca[4], boot.ci(boot_HTO)$bca[4]),2)
+Ratio_df$upper <-round(c(boot.ci(boot_Cont)$bca[5], boot.ci(boot_HTO)$bca[5]),2)
+
+
+ggplot(Ratio_df, aes(y=r,x=Condition, colour=Condition))+
+  geom_point(size=5)+
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=0.2)+
+  scale_y_continuous(limits=c(0,1))
+
+```
+
+La comparaison des intervalles de confiances à 95% ne permet pas de mettre en évidence de différence statistiquement significative entre les 2 ratios.
 
